@@ -53,7 +53,10 @@ app.use(cookieParser());
 app.use(xss());
 app.use(rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
-// 🩺 Health check route
+// � Handle Chrome DevTools .well-known requests to prevent 404 logs
+app.use('/.well-known/appspecific', (_req, res) => res.status(204).end());
+
+// �🩺 Health check route
 app.get('/', (_req, res) => res.json({ ok: true, service: 'kitchen-kettles-api' }));
 
 // 🚀 API routes
