@@ -2,37 +2,62 @@ import jwt from 'jsonwebtoken';
 import createError from 'http-errors';
 import User from '../models/User.js';
 import OtpToken from '../models/OtpToken.js';
-import { generateOTP, hashOTP, expiresAt } from '../utils/otp.js';
-import { sendEmail } from '../utils/email.js';
+import { generateOTP, hashOTP, compareOTP, expiresAt } from '../utils/otp.js';
+import { sendOTPEmail } from '../utils/email.js';
+
+// Safe defaults for OTP and JWT expiry
+const OTP_EXPIRE_MIN = process.env.OTP_TTL_MIN || process.env.OTP_EXPIRE_MIN || 5;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
 
 const signTokens = (userId, role) => {
-  const access = jwt.sign({ sub: userId, role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
-  const refresh = jwt.sign({ sub: userId, role, typ: 'refresh' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN });
+  const access = jwt.sign({ sub: userId, role }, process.env.JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const refresh = jwt.sign({ sub: userId, role, typ: 'refresh' }, process.env.JWT_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN });
   return { access, refresh };
 };
 
 export const requestOtp = async (email, purpose='login') => {
   const code = generateOTP(6);
+  
+  // Hash OTP with bcrypt before storing (NEVER store plain text OTP)
+  const otpHash = await hashOTP(code);
+  
   const otp = await OtpToken.create({
     email,
     purpose,
-    otpHash: hashOTP(code),
+    otpHash,
     expiresAt: expiresAt()
   });
-  await sendEmail({
-    to: email,
-    subject: 'Your Kitchen Kettles OTP',
-    html: `<p>Your OTP is <b>${code}</b>. It expires in ${process.env.OTP_EXP_MIN} minutes.</p>`
-  });
-  return { id: otp._id.toString() };
+
+  // Extract username from email or fetch from existing user
+  let username = email.split('@')[0];
+  const existingUser = await User.findOne({ email });
+  if (existingUser && existingUser.name) {
+    username = existingUser.name;
+  }
+
+  // Send OTP via email - handle errors to prevent OTP leakage
+  try {
+    await sendOTPEmail(email, code, username);
+  } catch (error) {
+    // Email failed - delete the OTP record and throw error
+    await OtpToken.deleteOne({ _id: otp._id });
+    throw createError(500, 'Failed to send OTP email. Please try again.');
+  }
+
+  // Return success without exposing OTP
+  return { ok: true, message: 'OTP sent successfully' };
 };
 
 export const verifyOtp = async ({ email, code, purpose='login', name }) => {
-  const otpHash = hashOTP(code);
   const record = await OtpToken.findOne({ email, purpose, consumed: false }).sort({ createdAt: -1 });
-  if (!record) throw createError(400, 'OTP not found');
-  if (record.otpHash !== otpHash) throw createError(400, 'Invalid OTP');
+  
+  if (!record) throw createError(400, 'OTP not found or already used');
   if (new Date() > record.expiresAt) throw createError(400, 'OTP expired');
+  
+  // Compare OTP using bcrypt
+  const isValid = await compareOTP(code, record.otpHash);
+  if (!isValid) throw createError(400, 'Invalid OTP');
 
   record.consumed = true;
   await record.save();

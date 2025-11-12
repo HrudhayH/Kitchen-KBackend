@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
+console.log('DEBUG ENV — EMAIL_USER set?', !!process.env.EMAIL_USER, 'EMAIL_APP_PASSWORD length:', (process.env.EMAIL_APP_PASSWORD||'').length);
 import { createServer } from 'http';
 import app from './app.js';
 import './config/db.js';

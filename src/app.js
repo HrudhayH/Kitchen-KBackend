@@ -38,7 +38,9 @@ app.use((req, _res, next) => {
 
 // 🛡 Security middlewares
 app.use(helmet());
-app.use(cors({ origin: true, credentials: true }));
+// Enable CORS for frontend (localhost:3000 in development)
+// In production, update this to your actual frontend domain
+app.use(cors({ origin: ['http://localhost:3000', 'http://localhost:5173'], credentials: true }));
 app.use(morgan('dev'));
 
 // 🧠 Body parsers — must come before sanitizers
