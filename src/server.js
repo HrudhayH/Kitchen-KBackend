@@ -4,7 +4,7 @@ console.log('DEBUG ENV — EMAIL_USER set?', !!process.env.EMAIL_USER, 'EMAIL_AP
 import { createServer } from 'http';
 import app from './app.js';
 import './config/db.js';
-
+import categoryRoutes from './routes/category.routes.js';
 const PORT = process.env.PORT || 5001;
 const server = createServer(app);
 server.listen(PORT, () => {

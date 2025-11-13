@@ -9,6 +9,8 @@ import xss from 'xss-clean';
 import rateLimit from 'express-rate-limit';
 import routes from './routes/index.js';
 import { notFound, errorHandler } from './middlewares/error.js';
+import categoryRoutes from "./routes/category.routes.js";
+
 
 const app = express();
 
@@ -38,11 +40,18 @@ app.use((req, _res, next) => {
 
 // 🛡 Security middlewares
 app.use(helmet());
-// Enable CORS for frontend (localhost:3000 in development)
-// In production, update this to your actual frontend domain
-app.use(cors({ origin: ['http://localhost:3000', 'http://localhost:5173'], credentials: true }));
-app.use(morgan('dev'));
 
+// ✅ Allow all your local frontend ports
+app.use(cors({
+  origin: [
+    'http://localhost:3000', // Next.js default port
+    'http://localhost:3001', // alternate frontend port
+    'http://localhost:5173'  // Vite dev server port
+  ],
+  credentials: true,
+}));
+
+app.use(morgan('dev'));
 // 🧠 Body parsers — must come before sanitizers
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -58,11 +67,14 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 120 }));
 // � Handle Chrome DevTools .well-known requests to prevent 404 logs
 app.use('/.well-known/appspecific', (_req, res) => res.status(204).end());
 
+
 // �🩺 Health check route
 app.get('/', (_req, res) => res.json({ ok: true, service: 'kitchen-kettles-api' }));
 
 // 🚀 API routes
 app.use('/api', routes);
+ 
+app.use("/api/categories", categoryRoutes);
 
 // 🧩 Error handlers
 app.use(notFound);

@@ -5,6 +5,15 @@ import productRoutes from './product.routes.js';
 import brandRoutes from './brand.routes.js';
 import orderRoutes from './order.routes.js';
 import uploadRoutes from './upload.routes.js';
+import categoryRoutes from './category.routes.js';
+
+
+
+
+
+
+
+
 
 // ADAPTERS: added by automation — safe wrapper routes for frontend compatibility
 import authAliases from './aliases.auth.js';
@@ -13,12 +22,17 @@ import orderAliases from './aliases.order.js';
 import rootAliases from './aliases.root.js';
 
 const router = Router();
+router.use('/categories', categoryRoutes);
+
+
 router.use('/auth', authRoutes);
 // ADAPTERS: mount auth aliases after main routes
 router.use('/auth', authAliases);
 
 router.use('/users', userRoutes);
 router.use('/products', productRoutes);
+
+
 
 router.use('/brands', brandRoutes);
 // ADAPTERS: mount brand aliases after main routes
